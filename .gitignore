@@ -1,0 +1,32 @@
+# Secrets
+.env
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# App data
+data/uploads/*
+data/outputs/*
+!data/uploads/.gitkeep
+!data/outputs/.gitkeep
+voice-to-doc.log
+voice-to-doc.pid
+nohup.out
+
+# Samples (เก็บแค่ script ไม่เก็บไฟล์เสียงใหญ่)
+samples/*.mp3
+samples/*.wav
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store

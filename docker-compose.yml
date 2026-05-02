@@ -1,0 +1,12 @@
+services:
+  voice-to-doc:
+    build: .
+    image: voice-to-doc:latest
+    container_name: voice-to-doc
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Voice-to-Doc · สรุปการประชุมจากไฟล์เสียง</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header>
+  <h1>🎙️ Voice-to-Doc</h1>
+  <p class="sub">อัปโหลดไฟล์เสียงประชุม → ระบบจะถอดเสียงและสรุปเป็นเอกสารให้อัตโนมัติ</p>
+</header>
+<main>
+  <section class="card">
+    <h2>1) อัปโหลดไฟล์เสียง</h2>
+    <form id="upload-form">
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="file" name="file" accept=".mp3,.wav,.m4a,.mp4,.webm,.ogg,.flac,.aac" hidden />
+        <span id="dropzone-text">ลากไฟล์มาวาง หรือคลิกเพื่อเลือกไฟล์<br/><small>รองรับ mp3, wav, m4a, mp4, webm, ogg, flac, aac</small></span>
+      </label>
+      <div class="row">
+        <label>ภาษา:
+          <select id="language">
+            <option value="th" selected>ไทย</option>
+            <option value="en">อังกฤษ</option>
+            <option value="">ตรวจอัตโนมัติ</option>
+          </select>
+        </label>
+        <button type="submit" id="submit-btn">เริ่มประมวลผล</button>
+      </div>
+    </form>
+  </section>
+  <section class="card hidden" id="status-card">
+    <h2>2) สถานะ</h2>
+    <p><strong>Job:</strong> <span id="job-id">-</span></p>
+    <p><strong>สถานะ:</strong> <span id="status">-</span></p>
+    <p id="message" class="muted"></p>
+    <div class="progress"><div id="bar"></div></div>
+  </section>
+  <section class="card hidden" id="result-card">
+    <h2>3) ผลลัพธ์</h2>
+    <div class="downloads">
+      <a id="dl-md" href="#" target="_blank">⬇️ Markdown (.md)</a>
+      <a id="dl-docx" href="#" target="_blank">⬇️ Word (.docx)</a>
+      <a id="dl-txt" href="#" target="_blank">⬇️ Text (.txt)</a>
+    </div>
+    <details open><summary><strong>📄 สรุปการประชุม</strong></summary><pre id="summary"></pre></details>
+    <details><summary><strong>📝 บทถอดเสียงเต็ม</strong></summary><pre id="transcript"></pre></details>
+  </section>
+</main>
+<footer><small>Open-source · ปรับแต่งและต่อยอดได้ตามใจ</small></footer>
+<script src="/static/app.js"></script>
+</body>
+</html>
