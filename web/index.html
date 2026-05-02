@@ -8,9 +8,16 @@
 </head>
 <body>
 <header>
-  <h1>🎙️ Voice-to-Doc</h1>
-  <p class="sub">อัปโหลดไฟล์เสียงประชุม → ระบบจะถอดเสียงและสรุปเป็นเอกสารให้อัตโนมัติ</p>
+  <div class="header-row">
+    <div>
+      <h1>🎙️ Voice-to-Doc</h1>
+      <p class="sub">อัปโหลดไฟล์เสียงประชุม → ระบบจะถอดเสียงและสรุปเป็นเอกสารให้อัตโนมัติ</p>
+    </div>
+    <button type="button" id="open-settings" class="icon-btn" title="ตั้งค่า AI Provider">⚙️ ตั้งค่า</button>
+  </div>
+  <div id="provider-badge" class="badge-row"></div>
 </header>
+
 <main>
   <section class="card">
     <h2>1) อัปโหลดไฟล์เสียง</h2>
@@ -31,6 +38,7 @@
       </div>
     </form>
   </section>
+
   <section class="card hidden" id="status-card">
     <h2>2) สถานะ</h2>
     <p><strong>Job:</strong> <span id="job-id">-</span></p>
@@ -38,6 +46,7 @@
     <p id="message" class="muted"></p>
     <div class="progress"><div id="bar"></div></div>
   </section>
+
   <section class="card hidden" id="result-card">
     <h2>3) ผลลัพธ์</h2>
     <div class="downloads">
@@ -49,7 +58,123 @@
     <details><summary><strong>📝 บทถอดเสียงเต็ม</strong></summary><pre id="transcript"></pre></details>
   </section>
 </main>
-<footer><small>Open-source · ปรับแต่งและต่อยอดได้ตามใจ</small></footer>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div id="settings-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-body">
+    <div class="modal-header">
+      <h2>⚙️ ตั้งค่า AI Provider</h2>
+      <button type="button" class="icon-btn" id="close-settings">✖</button>
+    </div>
+    <div class="modal-content">
+      <p class="muted">
+        ค่าที่กรอกจะ override ค่าจากไฟล์ <code>.env</code> และเก็บใน
+        <code>data/config.json</code> · มีผลทันทีไม่ต้อง restart
+      </p>
+
+      <div id="auth-section" class="hidden">
+        <label>🔐 Admin Token
+          <input type="password" id="admin-token" placeholder="ใส่ค่า ADMIN_PASSWORD"/>
+        </label>
+        <small class="muted">ถ้า server ไม่ได้ตั้ง <code>ADMIN_PASSWORD</code> ปล่อยว่างได้</small>
+      </div>
+
+      <h3>🎚️ Preset (โหลดค่าตัวอย่างเร็ว)</h3>
+      <div class="preset-row">
+        <button type="button" class="preset" data-preset="openai">⚡ OpenAI (จ่ายเงิน)</button>
+        <button type="button" class="preset" data-preset="ollama">🦙 Ollama (ฟรี local)</button>
+        <button type="button" class="preset" data-preset="groq">🚀 Groq (ฟรี เร็ว)</button>
+        <button type="button" class="preset" data-preset="openrouter">🌐 OpenRouter</button>
+        <button type="button" class="preset" data-preset="local">🆓 Whisper local เท่านั้น</button>
+      </div>
+
+      <form id="settings-form">
+        <fieldset>
+          <legend>🗣️ Transcription (ถอดเสียง)</legend>
+          <label>Provider
+            <select id="transcribe_provider">
+              <option value="local">faster-whisper (ฟรี local)</option>
+              <option value="openai">OpenAI Whisper API</option>
+            </select>
+          </label>
+          <label>Whisper Model (สำหรับ local)
+            <select id="whisper_model">
+              <option value="tiny">tiny (เร็วสุด, ความแม่นต่ำ)</option>
+              <option value="base">base</option>
+              <option value="small">small (แนะนำ)</option>
+              <option value="medium">medium</option>
+              <option value="large-v3">large-v3 (แม่นสุด ใช้ RAM เยอะ)</option>
+            </select>
+          </label>
+          <div class="row-2">
+            <label>Device
+              <select id="whisper_device">
+                <option value="cpu">cpu</option>
+                <option value="cuda">cuda (GPU NVIDIA)</option>
+              </select>
+            </label>
+            <label>Compute Type
+              <select id="whisper_compute_type">
+                <option value="int8">int8 (CPU)</option>
+                <option value="int8_float16">int8_float16</option>
+                <option value="float16">float16 (GPU)</option>
+                <option value="float32">float32</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>🤖 Summarization (สรุปด้วย LLM)</legend>
+          <label>Provider
+            <select id="summary_provider">
+              <option value="openai">OpenAI-compatible (OpenAI / Azure / Ollama / Groq / ฯลฯ)</option>
+              <option value="none">ปิด (ไม่สรุป แสดงแค่ transcript)</option>
+            </select>
+          </label>
+          <label>Model
+            <input type="text" id="summary_model" placeholder="gpt-4o-mini, llama-3.3-70b-versatile, gemma3:4b ..."/>
+          </label>
+          <label>API Key
+            <input type="password" id="openai_api_key" placeholder="sk-... / gsk_... (เว้นว่างถ้าไม่เปลี่ยน)" autocomplete="off"/>
+            <small class="muted" id="api-key-status"></small>
+          </label>
+          <label>Base URL <span class="hint">(เว้นว่าง = OpenAI ทางการ)</span>
+            <input type="text" id="openai_base_url" placeholder="https://api.openai.com/v1, http://localhost:11434/v1, ..."/>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>⚙️ ทั่วไป</legend>
+          <div class="row-2">
+            <label>Max Upload (MB)
+              <input type="number" id="max_upload_mb" min="1" max="2000"/>
+            </label>
+            <label>ภาษาเริ่มต้น
+              <select id="default_language">
+                <option value="th">ไทย</option>
+                <option value="en">อังกฤษ</option>
+                <option value="">อัตโนมัติ</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <div id="test-result" class="test-result hidden"></div>
+
+        <div class="modal-footer">
+          <button type="button" id="test-btn" class="btn-secondary">🧪 ทดสอบเชื่อมต่อ</button>
+          <button type="button" id="reset-btn" class="btn-danger">↩️ Reset (ใช้ .env)</button>
+          <button type="submit" id="save-btn" class="btn-primary">💾 บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<footer><small>Open-source · ปรับแต่งและต่อยอดได้ตามใจ · <a href="/docs" target="_blank">API Docs</a></small></footer>
 <script src="/static/app.js"></script>
+<script src="/static/settings.js"></script>
 </body>
 </html>

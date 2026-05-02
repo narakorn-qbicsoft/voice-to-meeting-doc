@@ -30,3 +30,6 @@ samples/*.wav
 .idea/
 *.swp
 .DS_Store
+
+# Runtime settings (override .env via web UI)
+data/config.json

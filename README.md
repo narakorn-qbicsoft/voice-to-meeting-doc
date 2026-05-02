@@ -273,7 +273,56 @@ docker compose down
 
 ---
 
-## ⚙️ การตั้งค่า .env
+
+---
+
+## 🎛️ ตั้งค่าจากหน้าเว็บ (Settings UI) ✨ ใหม่ใน v0.2
+
+ตั้งแต่ **v0.2.0** ไม่ต้องแก้ `.env` แล้ว! กดปุ่ม **⚙️ ตั้งค่า** มุมขวาบนของหน้าเว็บได้เลย:
+
+### คุณสมบัติของหน้า Settings
+- ✅ **เปลี่ยน AI Provider / Model / API Key / Base URL** ได้จากเว็บ
+- ✅ **Hot-reload** — กด บันทึก แล้วมีผลทันที **ไม่ต้อง restart server**
+- ✅ **🧪 ปุ่ม Test Connection** — ทดสอบว่า key/model ใช้งานได้จริง ก่อนบันทึก
+- ✅ **🎚️ Preset 5 ชุด** — กดปุ่มเดียวเปลี่ยนเป็น OpenAI / Ollama / Groq / OpenRouter / Local-only
+- ✅ **🔐 API Key ถูก mask** เมื่อแสดงผล (แสดงแค่ `sk-p••••B94A`)
+- ✅ **↩️ Reset** กลับไปใช้ค่า `.env` ได้ตลอด
+- ✅ **🔒 Admin Token** ป้องกันคนภายนอกแก้ (ถ้าตั้ง `ADMIN_PASSWORD` ใน env)
+
+### การทำงานเบื้องหลัง
+
+```
+ลำดับความสำคัญ:  data/config.json (override)  >  .env (default)
+```
+
+ค่าที่ user แก้ผ่านเว็บจะเก็บที่ `data/config.json` (ถูก gitignore แล้ว) ทับค่าจาก `.env`
+ลบไฟล์นี้ = กลับไปใช้ค่า `.env`
+
+### ป้องกันคนอื่นมาแก้ Settings (Production)
+
+ตั้ง `ADMIN_PASSWORD` ใน `.env`:
+```ini
+ADMIN_PASSWORD=my-strong-password-2026
+```
+หลัง restart → user จะต้องใส่ token นี้ในช่อง "Admin Token" ก่อนแก้ค่าใด ๆ
+(token เก็บใน browser localStorage)
+
+### API Endpoints ของ Settings
+
+| Method | Endpoint | คำอธิบาย |
+|--------|----------|----------|
+| `GET`  | `/api/settings` | ดูค่าปัจจุบัน (API key ถูก mask) |
+| `POST` | `/api/settings` | อัปเดต (body: JSON เช่น `{"summary_model":"gpt-4o"}`) |
+| `POST` | `/api/settings/test` | ทดสอบ LLM connection ปัจจุบัน |
+| `POST` | `/api/settings/reset` | ลบ override ทั้งหมด กลับไปใช้ `.env` |
+
+> ทุก endpoint ต้องมี header `X-Admin-Token: <password>` ถ้าตั้ง `ADMIN_PASSWORD`
+
+---
+
+## ⚙️ การตั้งค่า .env (Default values)
+
+> ค่าใน `.env` ใช้เป็น **default** ตอนเริ่มแอป — override ได้จากหน้า Settings UI ในเว็บ
 
 ### ตัวเลือกทั้งหมด
 

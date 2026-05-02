@@ -1,22 +1,38 @@
 from __future__ import annotations
+import os
 import traceback
 from pathlib import Path
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from .config import OUTPUT_DIR, UPLOAD_DIR, settings
+from typing import Optional
+from . import runtime_config as cfg
+from .config import OUTPUT_DIR, UPLOAD_DIR
 from .jobs import Job, store
 from .services.export import export_docx, export_markdown, export_text
-from .services.summarization import summarize
+from .services.summarization import summarize, test_llm_connection
 from .services.transcription import transcribe
 
 ALLOWED_EXT = {".mp3", ".wav", ".m4a", ".mp4", ".webm", ".ogg", ".flac", ".aac"}
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
 
-app = FastAPI(title="Voice-to-Doc", version="0.1.0")
+app = FastAPI(title="Voice-to-Doc", version="0.2.0")
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
 
 
+# ---------- auth dependency ----------
+def require_admin(x_admin_token: Optional[str] = Header(default=None)):
+    """ถ้าตั้ง ADMIN_PASSWORD ใน env → ต้องส่ง header X-Admin-Token ตรงกัน
+    ถ้าไม่ได้ตั้ง → เปิดให้ทุกคน (สำหรับ dev / single user)"""
+    if not ADMIN_PASSWORD:
+        return True
+    if x_admin_token != ADMIN_PASSWORD:
+        raise HTTPException(401, "Admin token required (set X-Admin-Token header)")
+    return True
+
+
+# ---------- pages ----------
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
     return HTMLResponse((WEB_DIR / "index.html").read_text(encoding="utf-8"))
@@ -26,12 +42,41 @@ def index() -> HTMLResponse:
 def health() -> dict:
     return {
         "status": "ok",
-        "transcribe_provider": settings.transcribe_provider,
-        "summary_provider": settings.summary_provider,
-        "whisper_model": settings.whisper_model,
+        "version": app.version,
+        "transcribe_provider": cfg.get("transcribe_provider"),
+        "summary_provider": cfg.get("summary_provider"),
+        "summary_model": cfg.get("summary_model"),
+        "whisper_model": cfg.get("whisper_model"),
+        "auth_required": bool(ADMIN_PASSWORD),
     }
 
 
+# ---------- settings ----------
+@app.get("/api/settings")
+def get_settings(_=Depends(require_admin)) -> dict:
+    return {
+        "settings": cfg.get_all(mask_secrets=True),
+        "auth_required": bool(ADMIN_PASSWORD),
+        "editable_fields": sorted(cfg.EDITABLE_FIELDS),
+    }
+
+
+@app.post("/api/settings")
+def update_settings(patch: dict, _=Depends(require_admin)) -> dict:
+    return {"settings": cfg.update(patch)}
+
+
+@app.post("/api/settings/reset")
+def reset_settings(_=Depends(require_admin)) -> dict:
+    return {"settings": cfg.reset()}
+
+
+@app.post("/api/settings/test")
+def test_settings(_=Depends(require_admin)) -> dict:
+    return test_llm_connection()
+
+
+# ---------- jobs ----------
 @app.post("/api/jobs")
 async def create_job(
     background: BackgroundTasks,
@@ -44,16 +89,16 @@ async def create_job(
     job = store.create(file.filename or "audio")
     dest = UPLOAD_DIR / f"{job.id}{ext}"
     size = 0
-    max_bytes = settings.max_upload_mb * 1024 * 1024
+    max_bytes = int(cfg.get("max_upload_mb")) * 1024 * 1024
     with dest.open("wb") as out:
         while chunk := await file.read(1024 * 1024):
             size += len(chunk)
             if size > max_bytes:
                 out.close()
                 dest.unlink(missing_ok=True)
-                raise HTTPException(413, f"ไฟล์ใหญ่เกิน {settings.max_upload_mb} MB")
+                raise HTTPException(413, f"ไฟล์ใหญ่เกิน {cfg.get('max_upload_mb')} MB")
             out.write(chunk)
-    background.add_task(_process_job, job.id, dest, language or settings.default_language)
+    background.add_task(_process_job, job.id, dest, language or cfg.get("default_language"))
     return {"job_id": job.id, "status": job.status}
 
 
@@ -100,9 +145,9 @@ def _job_payload(job: Job) -> dict:
         "id": job.id, "filename": job.filename, "status": job.status, "message": job.message,
         "transcript": job.transcript, "summary": job.summary,
         "downloads": {
-            "md": f"/api/jobs/{job.id}/download/md" if job.md_path else None,
+            "md":   f"/api/jobs/{job.id}/download/md"   if job.md_path   else None,
             "docx": f"/api/jobs/{job.id}/download/docx" if job.docx_path else None,
-            "txt": f"/api/jobs/{job.id}/download/txt" if job.txt_path else None,
+            "txt":  f"/api/jobs/{job.id}/download/txt"  if job.txt_path  else None,
         },
         "created_at": job.created_at.isoformat(),
         "updated_at": job.updated_at.isoformat(),
